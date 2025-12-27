@@ -7,7 +7,7 @@
 
 import Foundation
 
-public protocol RequestInterceptor {
-    func adapt(_ reuqest: URLRequest) async -> URLRequest // İstek sunucuya gitmeden hemen önce çalışır (Token eklemek için)
-    func retry(_ request: URLRequest, dueTo error: NetworkError) async -> Bool // Hata alındığında çalışır (Token yenileyip tekrar denemek için)
+public protocol RequestInterceptor: Sendable {
+    func adapt(_ request: URLRequest) async -> URLRequest
+    func retry(_ request: URLRequest, dueTo error: NetworkError) async -> Bool
 }

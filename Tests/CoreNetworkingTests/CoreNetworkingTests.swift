@@ -64,6 +64,7 @@ final class CoreNetworkingTests: XCTestCase {
         }
     }
     
+    // MARK: - 404
     func test_404_error_returns_unknown_error() async throws {
         MockURLProtocol.requestHandler = { request in
             let response = HTTPURLResponse(url: request.url!,
@@ -82,6 +83,38 @@ final class CoreNetworkingTests: XCTestCase {
                 XCTAssertTrue(message.contains("404"))
             } else {
                 XCTFail("Beklenen hata tipi gelmedi: \(error)")
+            }
+        }
+    }
+    
+    // MARK: - decodErr
+    func test_decoding_error_returns_decoding_error() async throws {
+        let badJSONData = """
+                "wrong_field" : "UGUR",
+                "missing_email": true
+            """.data(using: .utf8)!
+        
+        MockURLProtocol.requestHandler = { request in
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: nil
+            )!
+            
+            return (response, badJSONData)
+        }
+        
+        let result = await networkClient.request(TestEndpoint.userProfile, type: User.self)
+        
+        switch result {
+        case .success:
+            XCTFail("Decoding hatası olmalıydı ama başarılı döndü.")
+        case .failure(let error):
+            if case .decodingFailed = error {
+                
+            } else {
+                XCTFail("Decoding hatası bekleniyordu, gelen hata: \(error)")
             }
         }
     }

@@ -8,5 +8,5 @@
 import Foundation
 
 public protocol NetworkClientProtocol {
-    func requet<T: Decodable>(_ endpoint: Endpoint, type: T.Type) async -> Result<T, NetworkError>
+    func request<T: Decodable>(_ endpoint: Endpoint, type: T.Type) async -> Result<T, NetworkError>
 }

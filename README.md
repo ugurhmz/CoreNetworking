@@ -189,84 +189,186 @@ Projenize eklemek için `Package.swift` dosyanıza veya Xcode üzerinden şu ad�
 
 ---
 
-## 💻 Kullanım Kılavuzu (Usage)
+# 💻 CoreNetworking Kullanım Kılavuzu
 
-### 1. Endpoint Tanımlama
+Bu yapıyı projenize entegre etmek ve kullanmaya başlamak için temel olarak **3 adıma** ihtiyacınız var:
 
-API isteklerinizi organize etmek için `Endpoint` protokolünü kullanın.
+1.  **Model:** Sunucudan gelecek JSON verisini karşılayan `struct`.
+2.  **Endpoint:** İsteğin nereye ve nasıl atılacağını tarif eden `enum` (Router).
+3.  **Client:** İsteği yapan ve cevabı döndüren ana yönetici.
 
-```swift
-import CoreNetworking
+---
 
-enum RickAndMortyEndpoint: Endpoint {
-    case characters
-    case location(id: Int)
+## 1. Adım: Veri Modelini Oluştur (Decodable)
 
-    var baseURL: String { "[https://rickandmortyapi.com/api](https://rickandmortyapi.com/api)" }
-    
-    var path: String {
-        switch self {
-        case .characters: return "/character"
-        case .location(let id): return "/location/\(id)"
-        }
-    }
-    
-    var method: HTTPMethod { .get }
-    var task: RequestTask { .requestPlain } 
-    var headers: [String : String]? { nil }
-}
-```
-
-### 2. İstek Atma (Making Requests)
-
-Tek satırda, tip güvenli istek atın.
+Önce API'den dönecek olan JSON verisine uygun modelinizi oluşturun.
 
 ```swift
-// Veri Modeli
-struct CharacterResponse: Decodable {
-    let results: [Character]
+struct User: Decodable {
+    let id: Int
+    let name: String
+    let email: String
 }
-
-// Kullanım
-let client = NetworkClient()
-
-func fetch() async {
-    let result = await client.request(RickAndMortyEndpoint.characters, type: CharacterResponse.self)
-    
-    switch result {
-    case .success(let response):
-        print("Karakterler geldi: \(response.results.count)")
-    case .failure(let error):
-        print("Hata: \(error)")
-    }
-}
-```
-
-### 3. Authentication & Token Management
-
-Token sağlayıcınızı ve yenileme fonksiyonunuzu inject edin.
-
-```swift
-// Token yenileme mantığı
-let authInterceptor = AuthenticationInterceptor(
-    tokenProvider: { 
-        return UserDefaults.standard.string(forKey: "accessToken") 
-    },
-    refreshAction: {
-        // Token yenileme isteği at (Bool döner)
-        return await AuthManager.shared.refreshToken()
-    }
-)
-
-// Client'a interceptor'ı verin
-let secureClient = NetworkClient(interceptor: authInterceptor)
-
-// Bu client ile atılan isteklerde:
-// 1. Header'a otomatik "Bearer <token>" eklenir.
-// 2. 401 hatası gelirse token yenilenir ve istek tekrar denenir.
 ```
 
 ---
+
+## 2. Adım: Endpoint Tanımla (Router)
+
+Kütüphanenin kalbi burasıdır. `Endpoint` protokolünü uygulayan bir `enum` oluşturarak API uçlarınızı merkezi bir yerden yönetin.
+
+```swift
+import CoreNetworking // Kendi modülünüzü import edin
+
+enum UserEndpoint: Endpoint {
+    case getUsers
+    case getUserDetail(id: Int)
+    case createUser(name: String, email: String)
+    
+    var baseURL: String {
+        return "[https://jsonplaceholder.typicode.com](https://jsonplaceholder.typicode.com)"
+    }
+
+    var path: String {
+        switch self {
+        case .getUsers:
+            return "/users"
+        case .getUserDetail(let id):
+            return "/users/\(id)"
+        case .createUser:
+            return "/users"
+        }
+    }
+    
+    var method: HTTPMethod {
+        switch self {
+        case .getUsers, .getUserDetail:
+            return .get
+        case .createUser:
+            return .post
+        }
+    }
+    
+    // Parametreler ve Encoding
+    var task: RequestTask {
+        switch self {
+        case .getUsers, .getUserDetail:
+            return .requestPlain // Parametre gönderilmeyecek
+            
+        case .createUser(let name, let email):
+            // Body (JSON) içinde veri göndermek için:
+            let parameters: [String: Any] = [
+                "name": name,
+                "email": email
+            ]
+            return .requestParameters(parameters: parameters, encoding: JSONEncoding())
+            
+            // Eğer URL Query String (örn: ?search=test) gönderecekseniz:
+            // return .requestParameters(parameters: params, encoding: URLEncoding())
+        }
+    }
+    
+    // Headers: İstek başlıkları
+    var headers: [String : String]? {
+        return ["Content-Type": "application/json"]
+    }
+}
+```
+
+---
+
+## 3. Adım: Request Atma
+
+Artık `NetworkClient` sınıfını kullanarak asenkron bir şekilde istek atabilirsiniz. Bunu bir `Service` sınıfı içinde şu şekilde yapabilirsiniz. (Örnek olarak)
+
+```swift
+class UserService {
+    private let networkClient: NetworkClientProtocol
+    
+    init(networkClient: NetworkClientProtocol = NetworkClient()) {
+        self.networkClient = networkClient
+    }
+    
+    func fetchUsers() async {
+        let result = await networkClient.request(UserEndpoint.getUsers, type: [User].self)
+        
+        switch result {
+        case .success(let users):
+            print("Kullanıcılar başarıyla geldi: \(users.count) adet")
+            users.forEach { print("İsim: \($0.name)") }
+            
+        case .failure(let error):
+            print("Bir hata oluştu: \(error.localizedDescription)")
+        }
+    }
+}
+```
+
+---
+
+## 4. İleri Seviye: Token & Refresh Token (Interceptor)
+
+Eğer API'niz bir `Bearer Token` gerektiriyorsa ve token süresi dolduğunda (401 hatası) otomatik yenilenmesini istiyorsanız, kütüphanedeki `AuthenticationInterceptor` yapısını kullanın:
+
+
+
+```swift
+// 1. Token'ı sağla
+let tokenProvider: () -> String? = {
+    return UserDefaults.standard.string(forKey: "accessToken")
+}
+
+// 2. Token yenileme (Refresh) mantığı (Async)
+let refreshAction: () async -> Bool = {
+    // Burada "Refresh Token" servisine istek atıp yeni token'ı kaydetmelisiniz.
+    let isRefreshed = await AuthService.shared.refreshToken() 
+    return isRefreshed
+}
+
+// 3. Interceptor'ı oluşturun ve Client'a enjekte edin
+let authInterceptor = AuthenticationInterceptor(
+    tokenProvider: tokenProvider,
+    refreshAction: refreshAction
+)
+
+// Bu client artık her isteğe otomatik "Authorization" header ekler 
+// ve 401 hatası aldığında sessizce refresh işlemini dener.
+let secureClient = NetworkClient(interceptor: authInterceptor)
+```
+
+---
+
+## 5. Boş Cevapları Karşılama (EmptyResponse)
+
+Bazen API'den bir veri dönmez (örneğin sadece `204 No Content` veya `200 OK` dönen bir silme işlemi). Bu durumda kütüphanedeki `EmptyResponse` tipini kullanabilirsiniz:
+
+```swift
+func deleteUserAccount() async {
+    let result = await networkClient.request(UserEndpoint.deleteUser, type: EmptyResponse.self)
+    
+    switch result {
+    case .success:
+        print("İşlem başarılı, dönen veri yok.")
+    case .failure(let error):
+        print("Silme işlemi başarısız: \(error)")
+    }
+}
+```
+
+---
+
+## 📊 Özet Mimari Akış
+
+Kütüphanenin çalışma prensibi şu zincirleme akışı takip eder:
+
+
+
+1.  **Endpoint (Enum):** İsteğin tüm ham verilerini taşır.
+2.  **NetworkClient:** İşlemi koordine eden ana motordur.
+3.  **Interceptor (Opsiyonel):** İstek sunucuya gitmeden hemen önce araya girer (Adapt) ve hata dönerse müdahale eder (Retry).
+4.  **RequestBuilder:** `Endpoint` verisini `URLRequest` objesine dönüştürür.
+5.  **URLSession:** Native Swift motoru ile isteği gerçekleştirir.
+6.  **Decoding:** Gelen veri `Decodable` ile belirttiğiniz tipe çevrilir ve size döner.
 
 
 

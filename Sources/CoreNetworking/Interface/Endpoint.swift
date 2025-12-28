@@ -7,14 +7,17 @@
 
 import Foundation
 
-public enum RequestTask {
+public enum RequestTask: Sendable {
     case requestPlain
-    case requestParameters(parameters: [String: Any],
+    case requestParameters(parameters: [String: Sendable],
                            encoding: ParameterEncoding)
-    case requestJSONEncodable(encodable: Encodable)
+    case requestJSONEncodable(encodable: Encodable & Sendable)
+    
+    //Resim upload vs. için lazım olur
+    case requestData(data: Data)
 }
 
-public protocol Endpoint {
+public protocol Endpoint: Sendable {
     var baseURL: String { get }
     var path: String { get }
     var method: HTTPMethod { get }

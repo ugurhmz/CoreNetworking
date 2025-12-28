@@ -7,6 +7,6 @@
 
 import Foundation
 
-public protocol ParameterEncoding {
+public protocol ParameterEncoding: Sendable {
     func encode(_ request: inout URLRequest, with parameters: [String: Any]) throws
 }

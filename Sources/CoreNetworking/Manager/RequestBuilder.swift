@@ -34,6 +34,11 @@ final class RequestBuilder {
             } catch {
                 throw NetworkError.encodingFailed
             }
+        case .requestData(data: let data):
+            request.httpBody = data
+            if request.value(forHTTPHeaderField: "Content-Type") == nil {
+                    request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+                }
         }
         return request
     }

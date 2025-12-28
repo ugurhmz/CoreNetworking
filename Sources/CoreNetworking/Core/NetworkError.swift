@@ -12,6 +12,7 @@ public enum NetworkError: LocalizedError, Equatable {
     case encodingFailed
     case decodingFailed
     case noResponse
+    case cancelled
     case unauthorized
     case noInternet
     case timeout
@@ -23,6 +24,8 @@ public enum NetworkError: LocalizedError, Equatable {
         switch self {
         case .noInternet:
             return "Please check your internet connection."
+        case .cancelled:
+            return "The request cancelled!"
         case .timeout:
             return "The request timed out."
         case .serverError(let code):

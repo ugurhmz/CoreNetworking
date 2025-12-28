@@ -326,26 +326,25 @@ class UserService {
 
 ---
 
-## 4. İleri Seviye: Token & Refresh Token (Interceptor)
+Eğer API'niz Bearer Token kullanıyorsa, token sağlayıcıyı ve yenileme mekanizmasını (Interceptor) güvenli bir şekilde tanımlayabilirsiniz. Swift 6 uyumluluğu için closure'ların `@Sendable` olduğuna dikkat edin.
 
 Eğer API'niz bir `Bearer Token` gerektiriyorsa ve token süresi dolduğunda (401 hatası) otomatik yenilenmesini istiyorsanız, kütüphanedeki `AuthenticationInterceptor` yapısını kullanın:
 
 
 
 ```swift
-// 1. Token'ı sağla
-let tokenProvider: () -> String? = {
+// 1. Token'ı sağla (Thread-safe closure)
+let tokenProvider: @Sendable () -> String? = {
     return UserDefaults.standard.string(forKey: "accessToken")
 }
 
-// 2. Token yenileme (Refresh) mantığı (Async)
-let refreshAction: () async -> Bool = {
-    // Burada "Refresh Token" servisine istek atıp yeni token'ı kaydetmelisiniz.
-    let isRefreshed = await AuthService.shared.refreshToken() 
-    return isRefreshed
+// 2. Token yenileme mantığı (Async & Thread-safe)
+let refreshAction: @Sendable () async -> Bool = {
+    // Servise gidip yenileme yapın (Örnek: AuthManager üzerinden)
+    return await AuthManager.shared.refreshToken()
 }
 
-// 3. Interceptor'ı oluşturun ve Client'a enjekte edin
+// 3. Interceptor ve Client'ı oluştur
 let authInterceptor = AuthenticationInterceptor(
     tokenProvider: tokenProvider,
     refreshAction: refreshAction
@@ -356,6 +355,27 @@ let authInterceptor = AuthenticationInterceptor(
 let secureClient = NetworkClient(interceptor: authInterceptor)
 ```
 
+// ARTIK GÜVENDESİNİZ:
+// 1. Bu client ile atılan her isteğe otomatik "Authorization: Bearer <token>" eklenir.
+// 2. 401 hatası gelirse; istek havada yakalanır, token yenilenir ve istek tekrar atılır.
+// 3. Sonsuz döngü koruması mevcuttur (Max Retry: 2).
+---
+
+
+<br>
+
+
+### 4. İleri Seviye: Özel JSONDecoder Kullanımı
+
+Eğer API'niz farklı tarih formatları (örn: ISO8601) veya `snake_case` kullanıyorsa, kendi decoder'ınızı enjekte edebilirsiniz:
+
+```swift
+let customDecoder = JSONDecoder()
+customDecoder.keyDecodingStrategy = .convertFromSnakeCase
+customDecoder.dateDecodingStrategy = .iso8601
+
+// Decoder'ı client'a verin
+let client = NetworkClient(decoder: customDecoder)
 ---
 
 ## 5. Boş Cevapları Karşılama (EmptyResponse)
@@ -375,7 +395,7 @@ func deleteUserAccount() async {
 }
 ```
 
----
+<br>
 
 ## 📊 Özet Mimari Akış
 

@@ -7,6 +7,6 @@
 
 import Foundation
 
-public protocol NetworkClientProtocol {
+public protocol NetworkClientProtocol: Sendable {
     func request<T: Decodable>(_ endpoint: Endpoint, type: T.Type) async -> Result<T, NetworkError>
 }

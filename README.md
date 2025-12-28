@@ -15,6 +15,26 @@
 
 ---
 
+<br>
+
+## 🛠 Özet Akış Şeması (Diagram)
+
+```mermaid
+graph LR
+    A[Endpoint Enum] --> B[NetworkClient]
+    B --> C{Interceptor?}
+    C -- Evet --> D[Token Adapt / Refresh]
+    C -- Hayır --> E[RequestBuilder]
+    D --> E
+    E --> F[URLSession Request]
+    F --> G[JSON Decoding]
+    G --> H[Result Success/Failure]
+```
+
+---
+
+<br>
+
 **CoreNetworking**, modern Swift özelliklerini (Concurrency, Actors) temel alarak geliştirilmiş; hafif , güvenli (thread-safe) ve yüksek performanslı bir ağ katmanı kütüphanesidir.
 
 Bu kütüphane, karmaşık ve yönetimi zor 3. parti bağımlılıklar (Alamofire vb.) yerine; native `URLSession` API'larını modern yazılım mimarisi prensipleriyle (SOLID, POP) birleştirerek sunar.
@@ -369,6 +389,13 @@ Kütüphanenin çalışma prensibi şu zincirleme akışı takip eder:
 4.  **RequestBuilder:** `Endpoint` verisini `URLRequest` objesine dönüştürür.
 5.  **URLSession:** Native Swift motoru ile isteği gerçekleştirir.
 6.  **Decoding:** Gelen veri `Decodable` ile belirttiğiniz tipe çevrilir ve size döner.
+
+
+<br> <br>
+
+
+
+> **Sonuç:** Bu yapı sayesinde projenin hiçbir yerinde `URLRequest` konfigürasyonuyla uğraşmazsın. Sadece neyi (`Endpoint`) ve hangi tipe (`Decodable`) çekmek istediğini söylersin, kütüphane tüm karmaşıklığı arka planda halleder.
 
 
 

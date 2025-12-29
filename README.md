@@ -353,12 +353,14 @@ let authInterceptor = AuthenticationInterceptor(
 // Bu client artık her isteğe otomatik "Authorization" header ekler 
 // ve 401 hatası aldığında sessizce refresh işlemini dener.
 let secureClient = NetworkClient(interceptor: authInterceptor)
-```
+
 
 // ARTIK GÜVENDESİNİZ:
 // 1. Bu client ile atılan her isteğe otomatik "Authorization: Bearer <token>" eklenir.
 // 2. 401 hatası gelirse; istek havada yakalanır, token yenilenir ve istek tekrar atılır.
 // 3. Sonsuz döngü koruması mevcuttur (Max Retry: 2).
+```
+
 ---
 
 
